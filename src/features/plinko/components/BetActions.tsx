@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/Button";
 import { Select, SelectOption } from "@/components/ui/Select";
 import { ChangeEvent, useState } from "react";
+import { MAX_LINES } from "../constants/game";
 import { LinesType } from "../types/definitions";
 import { GameInput } from "./GameInput";
 
@@ -18,10 +19,9 @@ export function BetActions({
   lines,
 }: PlinkoBetActions) {
   const [betValue, setBetValue] = useState(0);
-  const maxLinesQnt = 16;
   const linesOptions: number[] = [];
 
-  for (let i = 8; i <= maxLinesQnt; i++) {
+  for (let i = 8; i <= MAX_LINES; i++) {
     linesOptions.push(i);
   }
 

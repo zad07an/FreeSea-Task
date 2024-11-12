@@ -24,3 +24,5 @@ export const PINS_SIZE = {
 
 export const baseWorldWidth = 900;
 export const baseWorldHeight = 900;
+
+export const MAX_LINES = 16;
