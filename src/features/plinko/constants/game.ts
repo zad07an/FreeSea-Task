@@ -23,4 +23,4 @@ export const PINS_SIZE = {
 };
 
 export const baseWorldWidth = 900;
-export const baseWorldHeight = 800;
+export const baseWorldHeight = 900;

@@ -1,3 +1,4 @@
+import { random } from "@/utils/random";
 import {
   Bodies,
   Body,
@@ -10,48 +11,31 @@ import {
   World,
 } from "matter-js";
 import { useCallback, useEffect, useState } from "react";
-
-import { useGame } from "@/store/useGame";
-import { random } from "@/utils/random";
-import { BetActions } from "./components/BetActions";
-import { PlinkoGameBody } from "./components/GameBody";
-import { MultiplierHistory } from "./components/MultiplierHistory";
-import { getConfig, PINS_GAP, PINS_SIZE } from "./config";
-import { getMultiplierByLinesQnt } from "./config/multipliers";
-import { LinesType, MultiplierValues } from "./types";
+import { getConfig } from "../configs/game-configs";
+import { getMultiplierByLinesQnt } from "../constants/multipliers";
+import { useGameStore } from "../store/useGameStore";
+import { LinesType, MultiplierValues } from "../types/definitions";
+import { BetActions } from "./BetActions";
+import { PlinkoGameBody } from "./GameBody";
+import { MultiplierHistory } from "./MultiplierHistory";
 
 export function PlinkoGame() {
   const engine = Engine.create();
   const [lines, setLines] = useState<LinesType>(16);
 
-  const inGameBallsCount = useGame((state) => state.gamesRunning);
-  const incrementInGameBallsCount = useGame(
-    (state) => state.incrementGamesRunning
-  );
-  const decrementInGameBallsCount = useGame(
-    (state) => state.decrementGamesRunning
-  );
-
-  const worldWidth: number = 900;
-
-  const worldHeight: number = 900;
+  const { gamesRunning, onIncrementGamesRunning, onDecrementGamesRunning } =
+    useGameStore();
 
   const [lastMultipliers, setLastMultipliers] = useState<number[]>([]);
 
-  const { pins: pinsConfig, engine: engineConfig } = getConfig(lines);
+  const { pinSize, pinGap, ballSize, engineGravity, startPins, world } =
+    getConfig(lines);
 
-  const dynamicPinSize = PINS_SIZE[lines];
-
-  // Calculate the dynamic gap ensuring the ball can fall without interference
-  const dynamicPinsGap = PINS_GAP[lines];
-
-  // Adjust the ball size to fit within the available space and avoid sticking to pins
-  const dynamicBallSize = PINS_SIZE[lines] / 1.2;
-
-  console.log(dynamicPinSize);
+  const worldWidth = world.width;
+  const worldHeight = world.height;
 
   useEffect(() => {
-    engine.gravity.y = engineConfig.engineGravity;
+    engine.gravity.y = engineGravity;
     const element = document.getElementById("plinko");
     const render = Render.create({
       element: element!,
@@ -76,6 +60,7 @@ export function PlinkoGame() {
     const runner = Runner.create();
     Runner.run(runner, engine);
     Render.run(render);
+
     return () => {
       World.clear(engine.world, true);
       Engine.clear(engine);
@@ -87,18 +72,14 @@ export function PlinkoGame() {
   const pins: Body[] = [];
 
   for (let l = 0; l < lines; l++) {
-    const linePins = pinsConfig.startPins + l;
-    const lineWidth = linePins * dynamicPinsGap;
+    const linePins = startPins + l;
+    const lineWidth = linePins * pinGap;
     for (let i = 0; i < linePins; i++) {
-      const pinX =
-        worldWidth / 2 -
-        lineWidth / 2 +
-        i * dynamicPinsGap +
-        dynamicPinsGap / 2;
+      const pinX = worldWidth / 2 - lineWidth / 2 + i * pinGap + pinGap / 2;
 
-      const pinY = worldWidth / lines + l * dynamicPinsGap + dynamicPinsGap;
+      const pinY = worldWidth / lines + l * pinGap + pinGap;
 
-      const pin = Bodies.circle(pinX, pinY, dynamicPinSize, {
+      const pin = Bodies.circle(pinX, pinY, pinSize, {
         label: `pin-${i}`,
         render: {
           fillStyle: "#F5DCFF",
@@ -110,28 +91,24 @@ export function PlinkoGame() {
   }
 
   function addInGameBall() {
-    if (inGameBallsCount > 15) return;
-    incrementInGameBallsCount();
+    if (gamesRunning > 15) return;
+    onIncrementGamesRunning();
   }
 
   function removeInGameBall() {
-    decrementInGameBallsCount();
+    onDecrementGamesRunning();
   }
 
   const addBall = useCallback(
     (ballValue: number) => {
       addInGameBall();
 
-      const minBallX = worldWidth / 2 - dynamicPinSize * 3 + dynamicPinsGap;
-      const maxBallX =
-        worldWidth / 2 -
-        dynamicPinSize * 3 -
-        dynamicPinsGap +
-        dynamicPinsGap / 2;
+      const minBallX = worldWidth / 2 - pinSize * 3 + pinGap;
+      const maxBallX = worldWidth / 2 - pinSize * 3 - pinGap + pinGap / 2;
 
       const ballX = random(minBallX, maxBallX);
       const ballColor = "red";
-      const ball = Bodies.circle(ballX, 50, dynamicBallSize, {
+      const ball = Bodies.circle(ballX, Math.ceil(pinGap * 1.5), ballSize, {
         restitution: 1,
         friction: 0.6,
         label: `ball-${ballValue}`,
@@ -162,14 +139,13 @@ export function PlinkoGame() {
 
   const multipliersBodies: Body[] = [];
 
-  let lastMultiplierX: number =
-    worldWidth / 2 - (dynamicPinsGap / 2) * lines - dynamicPinsGap;
+  let lastMultiplierX: number = worldWidth / 2 - (pinGap / 2) * lines - pinGap;
 
   multipliers.forEach((multiplier) => {
     const blockSize = 30; // height and width
     const multiplierBody = Bodies.rectangle(
-      lastMultiplierX + dynamicPinsGap,
-      worldWidth / lines + lines * dynamicPinsGap + dynamicPinsGap,
+      lastMultiplierX + pinGap,
+      worldWidth / lines + lines * pinGap + pinGap,
       blockSize,
       blockSize,
       {
@@ -177,8 +153,8 @@ export function PlinkoGame() {
         isStatic: true,
         render: {
           sprite: {
-            xScale: dynamicPinSize / 6,
-            yScale: dynamicPinSize / 6,
+            xScale: pinSize / 6,
+            yScale: pinSize / 6,
             texture: multiplier.img,
           },
         },
@@ -217,13 +193,13 @@ export function PlinkoGame() {
   return (
     <div className="w-full h-full flex flex-col-reverse items-center justify-center gap-4 md:flex-row">
       <BetActions
-        inGameBallsCount={inGameBallsCount}
+        gamesRunning={gamesRunning}
         onChangeLines={setLines}
         onRunBet={bet}
         lines={lines}
       />
       <MultiplierHistory multiplierHistory={lastMultipliers.slice(0, 3)} />
-      <div className="w-full h-full flex flex-1 items-center justify-center">
+      <div className="w-full h-full grid place-items-center">
         <PlinkoGameBody />
       </div>
     </div>
